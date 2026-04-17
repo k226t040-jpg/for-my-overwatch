@@ -1,0 +1,201 @@
+import React, { useState, useMemo } from 'react';
+import { Search, Shield, Crosshair, Plus, ArrowLeft, Swords } from 'lucide-react';
+
+// --- ヒーローとアンチピックのデータベース（サンプル） ---
+// 実際には全ヒーローのデータをここに追加します。
+const heroData = [
+  {
+    id: 'dva',
+    name: 'D.Va',
+    role: 'tank',
+    description: '機動力が高く、ディフェンス・マトリックスで射撃を防ぐタンク。',
+    counters: [
+      { name: 'ザリア', role: 'tank', reason: 'メイン射撃のビームはディフェンス・マトリックスで防ぐことができず、一方的にダメージを与えられるため。' },
+      { name: 'シンメトラ', role: 'damage', reason: 'ビーム攻撃がマトリックスを貫通し、D.Vaの大きなヒットボックスに当てやすいため。' },
+      { name: 'メイ', role: 'damage', reason: 'スプレー（メイン射撃）がマトリックスを貫通し、スロー効果で機動力を奪えるため。' }
+    ]
+  },
+  {
+    id: 'winston',
+    name: 'ウィンストン',
+    role: 'tank',
+    description: '敵陣に飛び込み、後衛を荒らすダイブ構成の要。',
+    counters: [
+      { name: 'リーパー', role: 'damage', reason: '近距離火力が非常に高く、ウィンストンの大きな体が的になりやすい。バリアも素早く破壊できる。' },
+      { name: 'バスティオン', role: 'damage', reason: '強襲モードの圧倒的な火力で、ウィンストンのバリアごと一瞬で溶かすことができる。' },
+      { name: 'ロードホッグ', role: 'tank', reason: 'フックでジャンプ中のウィンストンを叩き落としたり、味方から引き剥がすことができる。' }
+    ]
+  },
+  {
+    id: 'reinhardt',
+    name: 'ラインハルト',
+    role: 'tank',
+    description: '巨大な盾で味方を守る地上戦の王者。',
+    counters: [
+      { name: 'ファラ', role: 'damage', reason: 'ラインハルトの攻撃が届かない上空から、一方的に爆撃して盾や本体にダメージを与えられる。' },
+      { name: 'ラマットラ', role: 'tank', reason: 'ネメシスフォームのパンチが盾を貫通してダメージを与えられるため。' },
+      { name: 'バスティオン', role: 'damage', reason: '高火力でラインハルトの命綱であるシールドを数秒で破壊してしまう。' }
+    ]
+  },
+  {
+    id: 'pharah',
+    name: 'ファラ',
+    role: 'damage',
+    description: '空を飛びながらロケットを撃ち下ろすヒーロー。',
+    counters: [
+      { name: 'ウィドウメイカー', role: 'damage', reason: '空中にいるファラは遮蔽物がなく、遠距離からの狙撃の的になりやすい（ヒットスキャン全般に弱い）。' },
+      { name: 'アッシュ', role: 'damage', reason: '中遠距離から即着弾（ヒットスキャン）で撃ち落とすことができる。' },
+      { name: 'D.Va', role: 'tank', reason: 'ブースターで直接ファラに接近し、マトリックスでロケットを無効化しながら攻撃できる。' }
+    ]
+  },
+  {
+    id: 'genji',
+    name: 'ゲンジ',
+    role: 'damage',
+    description: '高い機動力と「木の葉返し」で敵を翻弄する忍者。',
+    counters: [
+      { name: 'ウィンストン', role: 'tank', reason: 'メイン武器の電撃は「木の葉返し」で防げず、自動追尾するため機動力を活かせない。' },
+      { name: 'モイラ', role: 'support', reason: 'メイン攻撃の吸い付きが「木の葉返し」を貫通し、確実にダメージを与えられる。' },
+      { name: 'ザリア', role: 'tank', reason: 'ビームが「木の葉返し」を貫通する。' }
+    ]
+  },
+  {
+    id: 'tracer',
+    name: 'トレーサー',
+    role: 'damage',
+    description: 'ブリンクによる超機動力で敵のバックラインを荒らす。',
+    counters: [
+      { name: 'トールビョーン', role: 'damage', reason: 'タレットが自動で正確に狙い続けるため、体力の低いトレーサーは動き回りにくくなる。' },
+      { name: 'キャスディ', role: 'damage', reason: 'マグネティック・グレネード（妨害）を当てられると移動スキルが封じられ、簡単にキルされる。' },
+      { name: 'キリコ', role: 'support', reason: 'クナイのヘッドショット1発で致命傷を与えられ、鈴でパルスボムを無効化できる。' }
+    ]
+  },
+  {
+    id: 'mercy',
+    name: 'マーシー',
+    role: 'support',
+    description: '味方単体の回復とダメージバフ、蘇生を持つサポート。',
+    counters: [
+      { name: 'ウィドウメイカー', role: 'damage', reason: '味方の間を飛び回る（ガーディアンエンジェル中）ところを狙撃で一撃キルできる。' },
+      { name: 'ソンブラ', role: 'damage', reason: 'ハックされると飛び回れなくなり、簡単にキルできる。蘇生の妨害も得意。' },
+      { name: 'アナ', role: 'support', reason: 'バイオティック・グレネード（阻害）を入れられると、マーシーの回復能力が完全に無意味になる。' }
+    ]
+  },
+  {
+    id: 'ana',
+    name: 'アナ',
+    role: 'support',
+    description: '強力な回復と、スリープ・阻害瓶を持つ遠距離サポート。',
+    counters: [
+      { name: 'キリコ', role: 'support', reason: '鈴の御守りで、アナの最強スキルである「阻害瓶」と「スリープダーツ」を全て解除できる。' },
+      { name: 'D.Va', role: 'tank', reason: '回復射撃も瓶もダーツも全てディフェンス・マトリックスで食べられてしまう。' },
+      { name: 'トレーサー', role: 'damage', reason: '機動力のないアナに対して背後から急襲し、スリープダーツを避けつつキルを狙える。' }
+    ]
+  }
+];
+
+export default function App() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [selectedHero, setSelectedHero] = useState(null);
+
+  // ロールのアイコンを取得する関数
+  const getRoleIcon = (role, className = "w-5 h-5") => {
+    switch (role) {
+      case 'tank': return <Shield className={className} />;
+      case 'damage': return <Crosshair className={className} />;
+      case 'support': return <Plus className={className} />;
+      default: return null;
+    }
+  };
+
+  // ロールの日本語名を取得する関数
+  const getRoleName = (role) => {
+    switch (role) {
+      case 'tank': return 'タンク';
+      case 'damage': return 'ダメージ';
+      case 'support': return 'サポート';
+      default: return '';
+    }
+  };
+
+  // ロールごとの色を取得する関数
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'tank': return 'bg-blue-100 text-blue-700 border-blue-300';
+      case 'damage': return 'bg-red-100 text-red-700 border-red-300';
+      case 'support': return 'bg-green-100 text-green-700 border-green-300';
+      default: return 'bg-gray-100 text-gray-700 border-gray-300';
+    }
+  };
+
+  // 検索とフィルター処理
+  const filteredHeroes = useMemo(() => {
+    return heroData.filter(hero => {
+      const matchesSearch = hero.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = selectedRole === 'all' || hero.role === selectedRole;
+      return matchesSearch && matchesRole;
+    });
+  }, [searchTerm, selectedRole]);
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      {/* ヘッダー */}
+      <header className="bg-orange-500 text-white shadow-md sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div 
+            className="flex items-center gap-2 font-bold text-xl cursor-pointer"
+            onClick={() => setSelectedHero(null)}
+          >
+            <Swords className="w-6 h-6" />
+            <span>OW2 アンチピックガイド</span>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        {selectedHero ? (
+          /* ヒーロー詳細（アンチピック表示）画面 */
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <button 
+              onClick={() => setSelectedHero(null)}
+              className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-6 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>一覧に戻る</span>
+            </button>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+              <div className="flex items-center gap-4 mb-4">
+                <div className={`p-3 rounded-xl border ${getRoleColor(selectedHero.role)}`}>
+                  {getRoleIcon(selectedHero.role, "w-8 h-8")}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-slate-800">{selectedHero.name}</h1>
+                  <span className="text-slate-500 font-medium">{getRoleName(selectedHero.role)}</span>
+                </div>
+              </div>
+              <p className="text-slate-600 leading-relaxed">{selectedHero.description}</p>
+            </div>
+
+            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <Swords className="w-5 h-5 text-orange-500" />
+              対策ヒーロー（アンチピック）
+            </h2>
+
+            <div className="grid gap-4">
+              {selectedHero.counters.map((counter, idx) => (
+                <div key={idx} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col sm:flex-row gap-4 items-start">
+                  <div className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg border font-bold ${getRoleColor(counter.role)}`}>
+                    {getRoleIcon(counter.role, "w-4 h-4")}
+                    {counter.name}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-slate-700 leading-relaxed">
+                      <span className="font-semibold block mb-1 text-slate-900">なぜ有利か？</span>
+                      {counter.reason}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
